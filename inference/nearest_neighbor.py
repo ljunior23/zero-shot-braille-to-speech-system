@@ -1,8 +1,3 @@
-"""
-Fast nearest neighbor search for embedding-based inference.
-Uses FAISS for efficient similarity search.
-"""
-
 import numpy as np
 import torch
 from pathlib import Path
