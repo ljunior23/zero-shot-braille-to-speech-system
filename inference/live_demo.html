@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zero-Shot Braille-to-Speech - Live Demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .mode-selector {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        
+        .mode-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        
+        .mode-btn {
+            padding: 15px 30px;
+            font-size: 18px;
+            border: 3px solid #667eea;
+            border-radius: 10px;
+            background: white;
+            color: #667eea;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        #videoCanvas {
+            position: relative;
+            width: 100%;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #000;
+        }
+        
+        #webcam {
+            width: 100%;
+            border-radius: 10px;
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status.recording {
+            background: #fff3cd;
+            color: #856404;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            flex: 1;
+            padding: 15px;
+            font-size: 16px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            min-width: 150px;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .predictions {
+            margin-top: 20px;
+            min-height: 200px;
+        }
+        
+        .prediction-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .sensor-data {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        
+        .braille-buffer {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 15px;
+            min-height: 100px;
+        }
+        
+        .braille-text {
+            font-size: 1.5em;
+            color: #333;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+            margin: 10px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ Zero-Shot Braille-to-Speech System</h1>
+        
+        <div class="mode-selector">
+            <h2>📍 Select Input Mode</h2>
+            <div class="mode-buttons">
+                <button class="mode-btn active" onclick="setMode('finger')" id="fingerModeBtn">
+                    👆 Finger Reading
+                </button>
+                <button class="mode-btn" onclick="setMode('braille')" id="brailleModeBtn">
+                    🔤 Braille Recognition
+                </button>
+            </div>
+        </div>
+        
+        <div class="grid">
+            <div class="card">
+                <h2>📹 Webcam Feed</h2>
+                <div id="videoCanvas">
+                    <video id="webcam" autoplay playsinline></video>
+                    <canvas id="canvas"></canvas>
+                </div>
+                <div class="sensor-data">
+                    <div>Mode: <strong id="currentMode">Finger Reading</strong></div>
+                    <div>Finger X: <span id="fingerX">0.00</span></div>
+                    <div>Finger Y: <span id="fingerY">0.00</span></div>
+                    <div>Buffer: <span id="bufferSize">0</span></div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2 id="outputTitle">🎯 Predictions</h2>
+                
+                <div class="predictions" id="fingerOutput">
+                    <p style="text-align: center; color: #999;">
+                        Waiting for predictions...
+                    </p>
+                </div>
+                
+                <div class="braille-buffer" id="brailleOutput" style="display: none;">
+                    <h3 style="text-align: center; color: #667eea;">Recognized Text</h3>
+                    <div class="braille-text" id="brailleText">...</div>
+                    <div style="text-align: center; margin-top: 15px;">
+                        <button class="btn-success" onclick="speakBraille()">
+                            🔊 Speak Text
+                        </button>
+                        <button class="btn-primary" onclick="clearBraille()">
+                            🗑️ Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>🎮 Controls</h2>
+            <div class="status disconnected" id="status">
+                Not started
+            </div>
+            <div class="controls">
+                <button class="btn-primary" onclick="startCamera()" id="cameraBtn">
+                    Start Camera
+                </button>
+                <button class="btn-primary" onclick="connectServer()" id="connectBtn" disabled>
+                    Connect to Server
+                </button>
+                <button class="btn-danger" onclick="startRecording()" id="recordBtn" disabled>
+                    Start Recording
+                </button>
+                <button class="btn-danger" onclick="stopRecording()" id="stopBtn" disabled>
+                    Stop Recording
+                </button>
+                <button class="btn-primary" onclick="toggleAudio()" id="audioBtn">
+                    🔊 Audio: ON
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let webcam, canvas, ctx;
+        let hands, camera;
+        let websocket;
+        let recording = false;
+        let fingerBuffer = [];
+        let imuBuffer = [];
+        let currentIMU = { x: 0, y: 0, z: 9.8 };
+        let audioEnabled = true;
+        let currentMode = 'finger';
+        let brailleText = '';
+        
+        function setMode(mode) {
+            currentMode = mode;
+            
+            document.getElementById('fingerModeBtn').classList.toggle('active', mode === 'finger');
+            document.getElementById('brailleModeBtn').classList.toggle('active', mode === 'braille');
+            document.getElementById('currentMode').textContent = 
+                mode === 'finger' ? 'Finger Reading' : 'Braille Recognition';
+            document.getElementById('outputTitle').textContent = 
+                mode === 'finger' ? '🎯 Predictions' : '🔤 Braille Output';
+            document.getElementById('fingerOutput').style.display = mode === 'finger' ? 'block' : 'none';
+            document.getElementById('brailleOutput').style.display = mode === 'braille' ? 'block' : 'none';
+            
+            brailleText = '';
+            updateBrailleDisplay();
+        }
+        
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480 } 
+                });
+                
+                webcam = document.getElementById('webcam');
+                webcam.srcObject = stream;
+                
+                canvas = document.getElementById('canvas');
+                ctx = canvas.getContext('2d');
+                
+                hands = new Hands({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+                });
+                
+                hands.setOptions({
+                    maxNumHands: 1,
+                    modelComplexity: 1,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
+                
+                hands.onResults(onHandsResults);
+                processFrame();
+                
+                document.getElementById('cameraBtn').disabled = true;
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('status').className = 'status connected';
+                document.getElementById('status').textContent = 'Camera ready';
+                
+                console.log('✓ Camera started');
+            } catch (error) {
+                alert('Error accessing camera: ' + error);
+            }
+        }
+        
+        async function processFrame() {
+            if (webcam && hands) {
+                await hands.send({ image: webcam });
+                
+                // In Braille mode, send frame for detection every 500ms
+                if (currentMode === 'braille' && recording && websocket && websocket.readyState === WebSocket.OPEN) {
+                    const now = Date.now();
+                    if (!window.lastBrailleDetection || now - window.lastBrailleDetection > 500) {
+                        window.lastBrailleDetection = now;
+                        detectBrailleFrame();
+                    }
+                }
+                
+                requestAnimationFrame(processFrame);
+            }
+        }
+        
+        function detectBrailleFrame() {
+            // Capture current frame as base64
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = webcam.videoWidth;
+            tempCanvas.height = webcam.videoHeight;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(webcam, 0, 0);
+            
+            const imageData = tempCanvas.toDataURL('image/jpeg', 0.8);
+            
+            // Get current finger position (if available)
+            const fingerX = window.currentFingerX || null;
+            const fingerY = window.currentFingerY || null;
+            
+            // Send to server
+            const message = {
+                type: 'recognize_braille',
+                image: imageData,
+                finger_x: fingerX,
+                finger_y: fingerY
+            };
+            
+            websocket.send(JSON.stringify(message));
+        }
+        
+        function onHandsResults(results) {
+            canvas.width = webcam.videoWidth;
+            canvas.height = webcam.videoHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                
+                // Draw hand
+                ctx.strokeStyle = currentMode === 'finger' ? '#00ff00' : '#667eea';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let i = 0; i < landmarks.length; i++) {
+                    const x = landmarks[i].x * canvas.width;
+                    const y = landmarks[i].y * canvas.height;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                
+                // Get index fingertip
+                const fingertip = landmarks[8];
+                const x = fingertip.x;
+                const y = fingertip.y;
+                
+                // Store globally for Braille detection
+                window.currentFingerX = x;
+                window.currentFingerY = y;
+                
+                // Draw fingertip
+                ctx.fillStyle = currentMode === 'finger' ? '#ff0000' : '#764ba2';
+                ctx.beginPath();
+                ctx.arc(x * canvas.width, y * canvas.height, 10, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                // In Braille mode, draw larger target circle
+                if (currentMode === 'braille' && recording) {
+                    ctx.strokeStyle = '#764ba2';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(x * canvas.width, y * canvas.height, 30, 0, 2 * Math.PI);
+                    ctx.stroke();
+                }
+                
+                document.getElementById('fingerX').textContent = x.toFixed(3);
+                document.getElementById('fingerY').textContent = y.toFixed(3);
+                
+                // Finger mode: accumulate buffer
+                if (recording && currentMode === 'finger') {
+                    fingerBuffer.push([x, y]);
+                    imuBuffer.push([currentIMU.x, currentIMU.y, currentIMU.z]);
+                    document.getElementById('bufferSize').textContent = fingerBuffer.length;
+                    
+                    if (fingerBuffer.length >= 30) {
+                        predict();
+                    }
+                }
+            }
+        }
+        
+        function connectServer() {
+            websocket = new WebSocket('ws://localhost:8765');
+            
+            websocket.onopen = () => {
+                document.getElementById('status').className = 'status connected';
+                document.getElementById('status').textContent = 'Connected to server';
+                document.getElementById('recordBtn').disabled = false;
+                console.log('✓ Connected to server');
+            };
+            
+            websocket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('Received:', data);
+                
+                if (data.type === 'prediction') {
+                    displayPredictions(data.predictions);
+                } else if (data.type === 'braille_result') {
+                    handleBrailleResult(data.result);
+                }
+            };
+            
+            websocket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                document.getElementById('status').className = 'status disconnected';
+                document.getElementById('status').textContent = 'Connection error';
+            };
+            
+            websocket.onclose = () => {
+                document.getElementById('status').className = 'status disconnected';
+                document.getElementById('status').textContent = 'Disconnected';
+                document.getElementById('recordBtn').disabled = true;
+            };
+        }
+        
+        function startRecording() {
+            recording = true;
+            fingerBuffer = [];
+            imuBuffer = [];
+            brailleText = '';
+            
+            document.getElementById('status').className = 'status recording';
+            document.getElementById('status').textContent = '🔴 Recording...';
+            document.getElementById('recordBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            
+            // Synthetic IMU for finger mode
+            if (currentMode === 'finger') {
+                window.syntheticIMUInterval = setInterval(() => {
+                    if (recording) {
+                        currentIMU = {
+                            x: 0.1 + (Math.random() - 0.5) * 0.2,
+                            y: 0.1 + (Math.random() - 0.5) * 0.2,
+                            z: 9.8 + (Math.random() - 0.5) * 0.3
+                        };
+                    }
+                }, 50);
+            }
+        }
+        
+        function stopRecording() {
+            recording = false;
+            
+            document.getElementById('status').className = 'status connected';
+            document.getElementById('status').textContent = 'Connected to server';
+            document.getElementById('recordBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            
+            if (window.syntheticIMUInterval) {
+                clearInterval(window.syntheticIMUInterval);
+            }
+        }
+        
+        function handleBrailleInput(e) {
+            if (!recording) return;
+            brailleText += e.key;
+            updateBrailleDisplay();
+        }
+        
+        function updateBrailleDisplay() {
+            document.getElementById('brailleText').textContent = brailleText || '...';
+            
+            const isComplete = brailleText.endsWith('.') || 
+                               brailleText.endsWith('!') || 
+                               brailleText.endsWith('?');
+            
+            if (isComplete && audioEnabled && brailleText.length > 2) {
+                setTimeout(() => speakBraille(), 500);
+            }
+        }
+        
+        function speakBraille() {
+            if (!brailleText) return;
+            speakText(brailleText);
+        }
+        
+        function clearBraille() {
+            brailleText = '';
+            updateBrailleDisplay();
+        }
+        
+        async function predict() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                console.error('WebSocket not connected');
+                return;
+            }
+            
+            if (fingerBuffer.length < 30 || imuBuffer.length < 30) {
+                return;
+            }
+            
+            window.lastPredictTime = performance.now();
+            
+            // CORRECTED: Use 'predict_finger' not 'predict'
+            const message = {
+                type: 'predict_finger',  // ← FIXED
+                sensor: {
+                    finger: fingerBuffer.slice(-30),
+                    imu: imuBuffer.slice(-30)
+                }
+            };
+            
+            console.log('Sending prediction request:', message);
+            websocket.send(JSON.stringify(message));
+            fingerBuffer = [];
+            imuBuffer = [];
+        }
+        
+        function displayPredictions(predictions) {
+            const container = document.getElementById('fingerOutput');
+            container.innerHTML = '';
+            
+            predictions.forEach((pred, idx) => {
+                const item = document.createElement('div');
+                item.className = 'prediction-item';
+                item.innerHTML = `
+                    <div style="font-size: 1.1em; color: #333; margin-bottom: 5px;">
+                        ${idx + 1}. ${pred.text}
+                    </div>
+                    <div style="font-size: 0.9em; color: #666;">
+                        Confidence: ${(pred.confidence * 100).toFixed(1)}%
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+            
+            if (predictions.length > 0 && audioEnabled) {
+                speakText(predictions[0].text);
+            }
+        }
+        
+        function handleBrailleResult(result) {
+            console.log('Braille result:', result);
+            
+            // Show message if no dots detected
+            if (result.message) {
+                document.getElementById('brailleText').textContent = result.message;
+                document.getElementById('brailleText').style.color = '#999';
+                document.getElementById('brailleText').style.fontSize = '1.2em';
+            }
+            // If we got a character from finger position
+            else if (result.fingerCell && result.text && result.text !== '?') {
+                // Reset styling
+                document.getElementById('brailleText').style.color = '#333';
+                document.getElementById('brailleText').style.fontSize = '1.5em';
+                
+                // Add character to buffer
+                brailleText += result.text;
+                updateBrailleDisplay();
+                
+                // Debounce: prevent adding same character multiple times
+                window.lastBrailleChar = result.text;
+                window.lastBrailleTime = Date.now();
+            } else if (!result.fingerCell && result.text) {
+                // Reset styling
+                document.getElementById('brailleText').style.color = '#333';
+                document.getElementById('brailleText').style.fontSize = '1.5em';
+                
+                // Got full text recognition (all cells)
+                brailleText = result.text;
+                updateBrailleDisplay();
+            }
+            
+            // Update stats
+            const statsDiv = document.getElementById('bufferSize');
+            statsDiv.textContent = `${result.cellCount || 0} cells, ${result.dotCount || 0} dots`;
+        }
+        
+        function speakText(text) {
+            if (!audioEnabled || !text) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            window.speechSynthesis.speak(utterance);
+        }
+        
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            const btn = document.getElementById('audioBtn');
+            btn.textContent = audioEnabled ? '🔊 Audio: ON' : '🔇 Audio: OFF';
+            btn.className = audioEnabled ? 'btn-primary' : 'btn-danger';
+            if (!audioEnabled) window.speechSynthesis.cancel();
+        }
+    </script>
+</body>
+</html>
