@@ -1,8 +1,3 @@
-"""
-Generate audio for sentences using free Google Translate TTS.
-Zero cost - uses gTTS library.
-"""
-
 from gtts import gTTS
 from pathlib import Path
 from tqdm import tqdm
