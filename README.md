@@ -4,7 +4,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10-blue.svg)](https://python.org)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0-red.svg)](https://pytorch.org)
-[![License](https://img.shields.io/badge/License-UMD-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 **Live Local Demo:** Run `python inference/unified_server.py` and open `live_demo.html` in browser
 
@@ -278,8 +278,8 @@ MIT License
 
 **George Kumi Acheampong**  
 📧 kwameleon21@gmail.com  
-💼 [LinkedIn](https://linkedin.com/in/yourprofile)  
-💻 [GitHub](https://github.com/)  
+💼 [LinkedIn](http://linkedin.com/in/george-acheampong-604a821b5)  
+💻 [GitHub](https://github.com/ljunior23)  
 
 ---
 
