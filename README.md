@@ -24,6 +24,7 @@ Built for accessibility, this system helps visually impaired users by converting
 ## ✨ Key Features
 
 - ✅ **Dual Recognition Modes:** Finger reading + Braille OCR
+- ✅ Self-Supervised Learning: Contrastive learning without labeled data
 - ✅ **Real-Time Inference:** <200ms latency via WebSocket
 - ✅ **Zero-Shot Learning:** Contrastive learning with FAISS similarity search
 - ✅ **Web-Based Interface:** Works on desktop and mobile browsers
@@ -192,7 +193,15 @@ python training/train.py
 
 # Build inference index
 python inference/build_inference_index.py
+
 ```
+### **Key Technique: Self-Supervised Contrastive Learning**
+
+- No labeled data required - learns from similarity relationships
+- Triplet loss (anchor, positive, negative) for discriminative embeddings
+- NT-Xent loss pushes similar samples together, different samples apart
+- Results in robust 128D embeddings for zero-shot recognition
+
 
 ### **Braille Recognition Model**
 
@@ -205,6 +214,30 @@ python braille/train_braille_cnn.py
 ```
 
 ---
+
+## 🔬 Technical Concepts Implemented
+
+**Machine Learning:**
+
+- Self-supervised learning (contrastive approach)
+- Convolutional Neural Networks (CNNs)
+- Embedding spaces and similarity search
+- Zero-shot recognition via K-NN
+- Triplet/contrastive loss functions
+
+**Computer Vision:**
+
+- Hand landmark tracking (MediaPipe)
+- Image preprocessing and thresholding
+- Contour detection and filtering
+- Spatial clustering algorithms
+
+**Systems & Infrastructure:**
+
+- WebSocket real-time communication
+- Asynchronous Python (asyncio)
+- Client-server architecture
+- FAISS for efficient similarity search
 
 ## 📦 Dependencies
 
