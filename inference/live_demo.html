@@ -470,24 +470,7 @@
         }
         
         function connectServer() {
-            // ✅ FIXED: Detect production vs local
-            const isProduction = window.location.hostname !== 'localhost' && 
-                                 window.location.hostname !== '127.0.0.1';
-            
-            let wsUrl;
-            if (isProduction) {
-                // Railway production - use WSS (secure WebSocket)
-                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                wsUrl = `${protocol}//${window.location.host}`;
-            } else {
-                // Local development
-                wsUrl = 'ws://localhost:8765';
-            }
-            
-            console.log('🔌 Connecting to:', wsUrl);
-            document.getElementById('status').textContent = 'Connecting...';
-            
-            websocket = new WebSocket(wsUrl);
+            websocket = new WebSocket('ws://localhost:8765');
             
             websocket.onopen = () => {
                 document.getElementById('status').className = 'status connected';
@@ -498,25 +481,22 @@
             
             websocket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                console.log('📨 Received:', data.type);
+                console.log('Received:', data);
                 
                 if (data.type === 'prediction') {
                     displayPredictions(data.predictions);
                 } else if (data.type === 'braille_result') {
                     handleBrailleResult(data.result);
-                } else if (data.type === 'error') {
-                    console.error('❌ Server error:', data.message);
                 }
             };
             
             websocket.onerror = (error) => {
-                console.error('❌ WebSocket error:', error);
+                console.error('WebSocket error:', error);
                 document.getElementById('status').className = 'status disconnected';
                 document.getElementById('status').textContent = 'Connection error';
             };
             
             websocket.onclose = () => {
-                console.log('🔌 Disconnected from server');
                 document.getElementById('status').className = 'status disconnected';
                 document.getElementById('status').textContent = 'Disconnected';
                 document.getElementById('recordBtn').disabled = true;
@@ -561,6 +541,12 @@
             }
         }
         
+        function handleBrailleInput(e) {
+            if (!recording) return;
+            brailleText += e.key;
+            updateBrailleDisplay();
+        }
+        
         function updateBrailleDisplay() {
             document.getElementById('brailleText').textContent = brailleText || '...';
             
@@ -585,7 +571,7 @@
         
         async function predict() {
             if (!websocket || websocket.readyState !== WebSocket.OPEN) {
-                console.error('❌ WebSocket not connected');
+                console.error('WebSocket not connected');
                 return;
             }
             
@@ -593,16 +579,18 @@
                 return;
             }
             
-            // ✅ FIXED: Correct message type
+            window.lastPredictTime = performance.now();
+            
+            // CORRECTED: Use 'predict_finger' not 'predict'
             const message = {
-                type: 'predict_finger',  // Match server expectation
+                type: 'predict_finger',  // ← FIXED
                 sensor: {
                     finger: fingerBuffer.slice(-30),
                     imu: imuBuffer.slice(-30)
                 }
             };
             
-            console.log('📤 Sending prediction request...');
+            console.log('Sending prediction request:', message);
             websocket.send(JSON.stringify(message));
             fingerBuffer = [];
             imuBuffer = [];
@@ -632,7 +620,7 @@
         }
         
         function handleBrailleResult(result) {
-            console.log('🔤 Braille result:', result);
+            console.log('Braille result:', result);
             
             // Show message if no dots detected
             if (result.message) {
@@ -646,16 +634,13 @@
                 document.getElementById('brailleText').style.color = '#333';
                 document.getElementById('brailleText').style.fontSize = '1.5em';
                 
-                // Add character to buffer (with debouncing)
-                const now = Date.now();
-                if (!window.lastBrailleChar || 
-                    window.lastBrailleChar !== result.text || 
-                    now - window.lastBrailleTime > 1000) {
-                    brailleText += result.text;
-                    updateBrailleDisplay();
-                    window.lastBrailleChar = result.text;
-                    window.lastBrailleTime = now;
-                }
+                // Add character to buffer
+                brailleText += result.text;
+                updateBrailleDisplay();
+                
+                // Debounce: prevent adding same character multiple times
+                window.lastBrailleChar = result.text;
+                window.lastBrailleTime = Date.now();
             } else if (!result.fingerCell && result.text) {
                 // Reset styling
                 document.getElementById('brailleText').style.color = '#333';
