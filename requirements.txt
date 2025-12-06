@@ -1,0 +1,42 @@
+# Core ML/DL (Free)
+torch
+torchaudio
+transformers
+
+# Computer Vision (Free)
+opencv-python
+mediapipe  # Google's free hand tracking
+
+# Audio Processing (Free)
+librosa
+soundfile
+
+# TTS (Free)
+gTTS  # Google Translate TTS
+pyttsx3 # Offline TTS
+
+# Data & Numerics
+numpy
+pandas
+scipy
+
+# Visualization
+matplotlib
+seaborn
+
+# Web & Real-time
+flask
+flask-socketio
+websockets
+
+# Utilities
+tqdm
+pyyaml
+requests
+beautifulsoup4  # For Project Gutenberg scraping
+
+# Efficient Search
+faiss-cpu  # Facebook's fast nearest neighbor
+
+# Testing
+pytest
